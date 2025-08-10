@@ -10,9 +10,9 @@ using System.Windows.Forms;
 
 namespace LockedIn
 {
-    public partial class Form2 : Form
+    public partial class frmAdministrator : Form
     {
-        public Form2()
+        public frmAdministrator()
         {
             InitializeComponent();
         }
