@@ -1,6 +1,6 @@
 ﻿namespace LockedIn
 {
-    partial class Form3
+    partial class frmPrisoner
     {
         /// <summary>
         /// Required designer variable.
