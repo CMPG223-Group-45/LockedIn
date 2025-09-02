@@ -23,6 +23,7 @@ namespace LockedIn
     public partial class frmAdmin : Form
     {
         Prisoner thisPrisoner = null;
+        Job selectedJob;
 
         string Ppassword = "";
         bool isAddingPrisoner = false;
@@ -111,7 +112,6 @@ namespace LockedIn
             else if (tcAdmin.SelectedIndex == 5)
             {
                 ComboBoxHelper.PopulateJobNames(cbxASJJobName);
-
             }
             else if (tcAdmin.SelectedIndex == 3)
             {
@@ -119,10 +119,6 @@ namespace LockedIn
                 pnladJobDetails.Visible = false;
                 pnlAdDate.Visible = false;
                 pnlAdSkills.Visible = false;
-
-
-
-
             }
 
 
@@ -546,7 +542,6 @@ namespace LockedIn
             string skillDesc = txtMSSkillDesc.Text.Trim();
 
 
-
             if (skillOperation == "DELETE")
             {
                 if (selectedSkillID == -1)
@@ -570,41 +565,49 @@ namespace LockedIn
 
                 if (selectedSkillID == -1) // new skills 
                 {
-                    cmd = new SqlCommand("INSERT INTO SKILL (SkillName, SkillDescription) OUTPUT INSERTED.SkillID VALUES (@Name, @Desc)", conn);
-                    cmd.Parameters.AddWithValue("@Name", skillName);
-                    cmd.Parameters.AddWithValue("@Desc", skillDesc);
-
-                    try
+                    // Ensuring that there is a skill name and description
+                    if (txtMSSkillName.Text == "" || txtMSSkillDesc.Text == "")
                     {
-                        conn.Open();
-                        int newSkillID = (int)cmd.ExecuteScalar();
-
-                        // optionally linking the skill to the prisoner.
-                        int defaultPrisonerID = prsnrID != 0 ? prsnrID : 1;
-                        SqlCommand linkCmd = new SqlCommand("INSERT INTO SKILL_OF_PRISONER (PrisonerID, SkillID) VALUES (@PrisonerID, @SkillID)", conn);
-                        linkCmd.Parameters.AddWithValue("@PrisonerID", defaultPrisonerID);
-                        linkCmd.Parameters.AddWithValue("@SkillID", newSkillID);
-                        linkCmd.ExecuteNonQuery();
-
-                        MessageBox.Show("Skill added successfully!");
-                        // Reset state after successful add
-                        ResetMaintainSkillsState();
-
-
-                        // ensuring the textboxes are clear after a skill has been added.
-                        txtMSSkillName.Clear();
-                        txtMSSkillDesc.Clear();
-                        selectedSkillID = -1;
-
-                        // preventing the auto trigerring
-                        isPopulating = true;
-                        ComboBoxHelper.PopulateSkillNames(cbxMSSkillName);
-                        cbxMSSkillName.SelectedIndex = -1;
-                        isPopulating = false;
+                        MessageBox.Show("Please ensure that both the skill name and description are entered");
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        MessageBox.Show("Error saving skill: " + ex.Message);
+                        cmd = new SqlCommand("INSERT INTO SKILL (SkillName, SkillDescription) OUTPUT INSERTED.SkillID VALUES (@Name, @Desc)", conn);
+                        cmd.Parameters.AddWithValue("@Name", skillName);
+                        cmd.Parameters.AddWithValue("@Desc", skillDesc);
+
+                        try
+                        {
+                            conn.Open();
+                            int newSkillID = (int)cmd.ExecuteScalar();
+
+                            // optionally linking the skill to the prisoner.
+                            int defaultPrisonerID = prsnrID != 0 ? prsnrID : 1;
+                            SqlCommand linkCmd = new SqlCommand("INSERT INTO SKILL_OF_PRISONER (PrisonerID, SkillID) VALUES (@PrisonerID, @SkillID)", conn);
+                            linkCmd.Parameters.AddWithValue("@PrisonerID", defaultPrisonerID);
+                            linkCmd.Parameters.AddWithValue("@SkillID", newSkillID);
+                            linkCmd.ExecuteNonQuery();
+
+                            MessageBox.Show("Skill added successfully!");
+                            // Reset state after successful add
+                            ResetMaintainSkillsState();
+
+
+                            // ensuring the textboxes are clear after a skill has been added.
+                            txtMSSkillName.Clear();
+                            txtMSSkillDesc.Clear();
+                            selectedSkillID = -1;
+
+                            // preventing the auto trigerring
+                            isPopulating = true;
+                            ComboBoxHelper.PopulateSkillNames(cbxMSSkillName);
+                            cbxMSSkillName.SelectedIndex = -1;
+                            isPopulating = false;
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show("Error saving skill: " + ex.Message);
+                        }
                     }
                 }
                 else // updating the existing skill.
@@ -1332,10 +1335,17 @@ namespace LockedIn
 
         private void button32_Click_1(object sender, EventArgs e)
         {
-             // Add job button
+            // Add job button
             try
             {
                 // Making panels visible
+                btnMJSave.Text = "Add";
+
+                pnlAdSkills.Enabled = false;
+                cbxMJEmpName.SelectedIndexChanged -= cbxMJEmpName_SelectedIndexChanged;
+                ComboBoxHelper.PopulateEmployerNames(cbxMJEmpName);
+                cbxMJEmpName.SelectedIndexChanged += cbxMJEmpName_SelectedIndexChanged;
+
                 pnladJobDetails.Visible = true;
                 pnlAdDate.Visible = true;
                 pnlAdFunctions.Visible = false;
@@ -1351,10 +1361,11 @@ namespace LockedIn
                 calEndDate.SelectionStart = DateTime.Today.AddDays(1);
                 nudDuration.Value = 8;
                 cbJobCompleted.Checked = false;
-                numericUpDown1.Value = 1;
+                sbxPNeeded.Value = 1;
 
                 selectedJobID = -1;
                 action = "ADD";
+
             }
             catch (Exception ex)
             {
@@ -1369,6 +1380,13 @@ namespace LockedIn
             try
             {
                 // Making panels visible
+                cbxMJEmpName.SelectedIndexChanged -= cbxMJEmpName_SelectedIndexChanged;
+                cbxMJEmpName.DataSource = null;
+                cbxMJEmpName.Items.Clear();
+                cbxMJEmpName.SelectedIndexChanged += cbxMJEmpName_SelectedIndexChanged;
+
+                btnMJSave.Text = "Save";
+
                 pnladJobDetails.Visible = true;
                 pnlAdDate.Visible = true;
                 pnlAdFunctions.Visible = false;
@@ -1401,7 +1419,7 @@ namespace LockedIn
                 DateTime endDate = calEndDate.SelectionStart;
                 decimal duration = nudDuration.Value;
                 bool job_completed = cbJobCompleted.Checked;
-                decimal prisoners = numericUpDown1.Value;
+                int prisoners = (int)sbxPNeeded.Value;
 
                 // Validation
                 if (string.IsNullOrEmpty(job_name))
@@ -1429,26 +1447,33 @@ namespace LockedIn
                 }
 
                 // Add job
-                if (action == "ADD")
+                if (action == "ADD" && !pnlAdSkills.Enabled)
                 {
-                    
-                    int employerID = GetEmployerIDByName(); 
+
+                    int employerID = ComboBoxHelper.GetSelectedID(cbxMJEmpName);
                     if (employerID <= 0)
                     {
                         MessageBox.Show("Invalid employer selected. Please check the employer name.");
                         return;
                     }
+
                     Job newJob = new Job
                     {
-                        EmployerID = employerID,JobName = job_name, JobDescription = job_description,JobLocation = job_location,StartDate = startDate,EndDate = endDate,PrisonersNeeded = (int)prisoners,Completed = job_completed, DurationPerDay = (int)duration
+                        EmployerID = employerID, JobName = job_name, JobDescription = job_description, JobLocation = job_location, StartDate = startDate, EndDate = endDate, PrisonersNeeded = (int)prisoners, Completed = job_completed, DurationPerDay = (int)duration
                     };
 
                     int newJobID = JobManager.AddJob(newJob);
 
                     if (newJobID > 0)
                     {
-                        MessageBox.Show($"Job added successfully with ID: {newJobID}");
+                        MessageBox.Show($"Job added successfully with ID: {newJobID}. Now you can assign skills to the job");
                         selectedJobID = newJobID;
+                        pnlAdSkills.Enabled = true;
+
+                        ListboxHelper.PopulateCurrentJobSkills(lstMJCurrentSkills, selectedJobID);
+                        ListboxHelper.PopulateAvailablePSkills(lstMJAllSkills, selectedJobID);
+
+                        return;
                     }
                     else
                     {
@@ -1456,16 +1481,23 @@ namespace LockedIn
                         return;
                     }
                 }
+                else if(action == "ADD" && pnlAdSkills.Enabled) 
+                {
+                    MessageBox.Show($"Job added successfully.");
+
+                }
                 // Edit job
                 else if (action == "EDIT")
                 {
+                    int employerID = selectedJob.EmployerID;
+
                     if (selectedJobID <= 0)
                     {
                         MessageBox.Show("Please select a job to edit.");
                         return;
                     }
-                   
-                    bool success = JobManager.UpdateJob(selectedJobID, job_name, job_description, job_location,startDate, endDate, duration, job_completed, (int)prisoners);
+
+                    bool success = JobManager.UpdateJob(selectedJobID, employerID, job_name, job_description, job_location, startDate, endDate, duration, job_completed, prisoners);
 
                     if (success)
                     {
@@ -1488,9 +1520,10 @@ namespace LockedIn
                     else
                     {
                         JobManager.DeleteJob(selectedJobID);
+                        MessageBox.Show("Job successfully deleted");
                     }
-                        
-                   
+
+
                 }
 
                 ResetJobForm();
@@ -1509,6 +1542,17 @@ namespace LockedIn
         }
         private void ResetJobForm()
         {
+            cbxMJEmpName.Enabled = true;
+            sbxPNeeded.Enabled = true;
+            pnlAdDate.Enabled = true;
+
+            lstMJAllSkills.DataSource = null;
+            lstMJAllSkills.Items.Clear();
+            lstMJCurrentSkills.DataSource = null;
+            lstMJCurrentSkills.Items.Clear();
+
+            pnlAdSkills.Enabled = true;
+            btnMJSave.Text = "Save";
             txtJobname.Clear();
             rtbJobDescription.Clear();
             rtbJobLocation.Clear();
@@ -1516,67 +1560,33 @@ namespace LockedIn
             calEndDate.SelectionStart = DateTime.Today.AddDays(1);
             nudDuration.Value = 8;
             cbJobCompleted.Checked = false;
-            numericUpDown1.Value = 1;
+            sbxPNeeded.Value = 1;
             selectedJobID = -1;
             action = "";
 
-            MJtxtEmployerName.Clear();
+            cbxMJEmpName.SelectedIndexChanged -= cbxMJEmpName_SelectedIndexChanged;
+            cbxJobName.Enabled = true;
+            cbxMJEmpName.DataSource = null;
+            cbxMJEmpName.Items.Clear();
+            cbxMJEmpName.SelectedIndexChanged += cbxMJEmpName_SelectedIndexChanged;
 
             txtJobname.ReadOnly = false;
             rtbJobDescription.ReadOnly = false;
             rtbJobLocation.ReadOnly = false;
-            MJtxtEmployerName.ReadOnly = false;
+
 
             cmbJobNAme.SelectedIndex = -1;
         }
 
-        private int GetEmployerIDByName()
-        {
-            try
-            {
-                string employerName = MJtxtEmployerName.Text.Trim();
-
-                if (string.IsNullOrEmpty(employerName))
-                {
-                    MessageBox.Show("Please enter an employer name.");
-                    return -1;
-                }
-
-                string connStr = DatabaseConfig.GetConStr();
-                using (SqlConnection conn = new SqlConnection(connStr))
-                {
-                    string query = @"SELECT EmployerID FROM EMPLOYER WHERE CONCAT(FirstName, ' ', LastName) = @EmployerName OR FirstName = @EmployerName OR LastName = @EmployerName";
-
-                    using (SqlCommand cmd = new SqlCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@EmployerName", employerName);
-                        conn.Open();
-
-                        object result = cmd.ExecuteScalar();
-                        if (result != null && result != DBNull.Value)
-                        {
-                            return Convert.ToInt32(result);
-                        }
-                        else
-                        {
-                            MessageBox.Show($"Employer '{employerName}' not found in database.");
-                            return -1;
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error retrieving employer ID: {ex.Message}");
-                return -1;
-            }
-        }
+        
         private void button31_Click(object sender, EventArgs e)
         {
             // Delete existing job
             try
             {
                 // Making panels visible
+                btnMJSave.Text = "Delete";
+
                 pnladJobDetails.Visible = true;
                 pnlAdDate.Visible = true;
                 pnlAdFunctions.Visible = false;
@@ -1591,7 +1601,7 @@ namespace LockedIn
                 calEndDate.SelectionStart = DateTime.Today.AddDays(1);
                 nudDuration.Value = 8;
                 cbJobCompleted.Checked = false;
-                numericUpDown1.Value = 1;
+                sbxPNeeded.Value = 1;
 
                 action = "DELETE";
             }
@@ -1866,9 +1876,9 @@ namespace LockedIn
         {
             string skill = "";
 
-            skill = listBox1.SelectedItem.ToString();
-            listBox2.Items.Add(skill);
-            listBox1.Items.RemoveAt(listBox1.SelectedIndex);
+            skill = lstMJAllSkills.SelectedItem.ToString();
+            lstMJCurrentSkills.Items.Add(skill);
+            lstMJAllSkills.Items.RemoveAt(lstMJAllSkills.SelectedIndex);
             //JobSkillManager.AddJobSkill(JobID, skill);
 
         }
@@ -1877,9 +1887,9 @@ namespace LockedIn
         {
             string skill = "";
 
-            skill = listBox2.SelectedItem.ToString();
-            listBox1.Items.Add(skill);
-            listBox2.Items.RemoveAt(listBox2.SelectedIndex);
+            skill = lstMJCurrentSkills.SelectedItem.ToString();
+            lstMJAllSkills.Items.Add(skill);
+            lstMJCurrentSkills.Items.RemoveAt(lstMJCurrentSkills.SelectedIndex);
             //JobSkillManager.RemoveJobSkill(JobID,skill);
         }
 
@@ -1937,11 +1947,10 @@ namespace LockedIn
                     if (selectedJobID > 0)
                     {
                         // Load job details using JobManager
-                        Job selectedJob = JobManager.LoadJob(selectedJobID);
+                        selectedJob = JobManager.LoadJob(selectedJobID);
 
                         if (selectedJob != null)
-                        {
-                            
+                        {                            
                             txtJobname.Text = selectedJob.JobName;
                             rtbJobDescription.Text = selectedJob.JobDescription;
                             rtbJobLocation.Text = selectedJob.JobLocation;
@@ -1949,28 +1958,40 @@ namespace LockedIn
                             calEndDate.SelectionStart = selectedJob.EndDate;
                             nudDuration.Value = selectedJob.DurationPerDay;
                             cbJobCompleted.Checked = selectedJob.Completed;
-                            numericUpDown1.Value = selectedJob.PrisonersNeeded;
+                            sbxPNeeded.Value = selectedJob.PrisonersNeeded;
 
                             // Populate employer name from EmployerID
+
+                            cbxMJEmpName.Enabled = true;
                             string employerName = GetEmployerNameById(selectedJob.EmployerID);
                             if (!string.IsNullOrEmpty(employerName))
                             {
-                                MJtxtEmployerName.Text = employerName;
+                                cbxMJEmpName.SelectedIndexChanged -= cbxMJEmpName_SelectedIndexChanged;
+                                cbxMJEmpName.DataSource = null;
+                                cbxMJEmpName.Items.Clear();
+                                cbxMJEmpName.Items.Add(employerName);
+                                cbxMJEmpName.SelectedIndex = 0;
+                                cbxMJEmpName.Enabled = false;
+                                cbxMJEmpName.SelectedIndexChanged += cbxMJEmpName_SelectedIndexChanged;
                             }
 
                             if (action == "DELETE")
                             {
-                                ListboxHelper.PopulateCurrentJobSkills(listBox1, selectedJobID);
-                                ListboxHelper.PopulateAvailablePSkills(listBox2, selectedJobID);
+                                sbxPNeeded.Enabled = false;
+                                pnlAdDate.Enabled = false;
+                                ListboxHelper.PopulateCurrentJobSkills(lstMJCurrentSkills, selectedJobID);
+                                ListboxHelper.PopulateAvailablePSkills(lstMJAllSkills, selectedJobID);
+                                pnlAdSkills.Enabled = false;
                                 txtJobname.ReadOnly = true;
                                 rtbJobDescription.ReadOnly = true;
                                 rtbJobLocation.ReadOnly = true;
                                 Job newJob = new Job();
+                                
                             }
                             else if (action == "EDIT")
                             {
-                                ListboxHelper.PopulateCurrentJobSkills(listBox1, selectedJobID);
-                                ListboxHelper.PopulateAvailablePSkills(listBox2, selectedJobID);
+                                ListboxHelper.PopulateCurrentJobSkills(lstMJCurrentSkills, selectedJobID);
+                                ListboxHelper.PopulateAvailablePSkills(lstMJAllSkills, selectedJobID);
                                 txtJobname.ReadOnly = false;
                                 rtbJobDescription.ReadOnly = false;
                                 rtbJobLocation.ReadOnly = false;
@@ -2002,9 +2023,49 @@ namespace LockedIn
 
         }
 
-        private void button6_Click(object sender, EventArgs e)
+        private void cbxMJEmpName_SelectedIndexChanged(object sender, EventArgs e)
         {
 
+        }
+
+        private void btnASJAdd_Click_1(object sender, EventArgs e)
+        {
+            JobSkillManager.AddJobSkill((int)cbxASJJobName.SelectedValue, ListboxHelper.GetSelectedSkillID(lstASJAllSkills));
+
+            isPopulating = true;
+            ListboxHelper.PopulatAvailableJobSkills(lstASJAllSkills, (int)cbxASJJobName.SelectedValue);
+            ListboxHelper.PopulateCurrentJobSkills(lstASJCurrentSkillOfJob, (int)cbxASJJobName.SelectedValue);
+            isPopulating = false;
+        }
+
+        private void btnASJRemove_Click_1(object sender, EventArgs e)
+        {
+            JobSkillManager.RemoveJobSkill((int)cbxASJJobName.SelectedValue, ListboxHelper.GetSelectedSkillID(lstASJCurrentSkillOfJob));
+
+            isPopulating = true;
+            ListboxHelper.PopulatAvailableJobSkills(lstASJAllSkills, (int)cbxASJJobName.SelectedValue);
+            ListboxHelper.PopulateCurrentJobSkills(lstASJCurrentSkillOfJob, (int)cbxASJJobName.SelectedValue);
+            isPopulating = false;
+        }
+
+        private void button2_Click_1(object sender, EventArgs e)
+        {
+            JobSkillManager.AddJobSkill(selectedJobID, ListboxHelper.GetSelectedSkillID(lstMJAllSkills));
+
+            isPopulating = true;
+            ListboxHelper.PopulatAvailableJobSkills(lstMJAllSkills, selectedJobID);
+            ListboxHelper.PopulateCurrentJobSkills(lstMJCurrentSkills, selectedJobID);
+            isPopulating = false;
+        }
+
+        private void button1_Click_2(object sender, EventArgs e)
+        {
+            JobSkillManager.RemoveJobSkill(selectedJobID, ListboxHelper.GetSelectedSkillID(lstMJCurrentSkills));
+
+            isPopulating = true;
+            ListboxHelper.PopulatAvailableJobSkills(lstMJAllSkills, selectedJobID);
+            ListboxHelper.PopulateCurrentJobSkills(lstMJCurrentSkills, selectedJobID);
+            isPopulating = false;
         }
     }
 } 

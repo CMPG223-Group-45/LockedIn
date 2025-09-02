@@ -874,7 +874,14 @@ namespace LockedIn
                         return;
                     }
 
-                    bool success = JobManager.UpdateJob(selectedJobID, job_name, job_description, job_location, startDate, endDate, duration, job_completed, (int)prisoners);
+                    int employerID = GetEmployerIDByName();
+                    if (employerID <= 0)
+                    {
+                        MessageBox.Show("Invalid employer selected. Please check the employer name.");
+                        return;
+                    }
+
+                    bool success = JobManager.UpdateJob(selectedJobID, employerID,job_name, job_description, job_location, startDate, endDate, duration, job_completed, (int)prisoners);
 
                     if (success)
                     {
