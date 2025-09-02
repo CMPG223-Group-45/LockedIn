@@ -1332,7 +1332,7 @@ namespace LockedIn
 
         private void button32_Click_1(object sender, EventArgs e)
         {
-            // Add job button
+             // Add job button
             try
             {
                 // Making panels visible
@@ -1998,6 +1998,11 @@ namespace LockedIn
         }
 
         private void pnlAdFunctions_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+
+        private void button6_Click(object sender, EventArgs e)
         {
 
         }
